@@ -1,6 +1,6 @@
 package module
 
-import "test/model"
+import "gocycles/model"
 
 type Module struct {
 	Start model.Stage

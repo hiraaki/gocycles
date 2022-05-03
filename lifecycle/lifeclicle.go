@@ -1,8 +1,8 @@
 package lifecycle
 
 import (
-	"test/model"
-	"test/module"
+	"gocycles/model"
+	"gocycles/module"
 )
 
 type option func(l *lifecycle)

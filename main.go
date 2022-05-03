@@ -2,14 +2,20 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"test/app"
-	"test/lifecycle"
-	"test/module"
+	"gocycles/app"
+	"gocycles/lifecycle"
+	"gocycles/module"
 	"time"
 )
 
-func runing(ctx context.Context) error {
+func runWithErr(ctx context.Context) error {
+	fmt.Println("runnig")
+	return errors.New("runner Faild")
+}
+
+func run(ctx context.Context) error {
 	fmt.Println("runnig")
 	time.Sleep(time.Second * 5)
 	return nil
@@ -18,17 +24,17 @@ func runing(ctx context.Context) error {
 func main() {
 
 	mod := module.NewModule(
-		module.WithStart(runing),
-		module.WithRun(runing),
-		module.WithWait(runing),
-		module.WithReset(runing),
+		module.WithStart(run),
+		module.WithRun(runWithErr),
+		module.WithWait(run),
+		module.WithReset(run),
 	)
 
 	mod2 := module.NewModule(
-		module.WithStart(runing),
-		module.WithRun(runing),
-		module.WithWait(runing),
-		module.WithReset(runing),
+		module.WithStart(run),
+		module.WithRun(run),
+		module.WithWait(run),
+		module.WithReset(run),
 	)
 
 	life := lifecycle.NewLifeClicle(
