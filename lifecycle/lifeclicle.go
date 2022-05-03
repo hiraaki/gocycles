@@ -46,10 +46,10 @@ func (l *lifecycle) addRun(s model.Stage) {
 	l.run = append(l.run, s)
 }
 func (l *lifecycle) addWait(s model.Stage) {
-	l.wait = append(l.start, s)
+	l.wait = append(l.wait, s)
 }
 func (l *lifecycle) addReset(s model.Stage) {
-	l.reset = append(l.start, s)
+	l.reset = append(l.reset, s)
 }
 func (l *lifecycle) Start() []model.Stage {
 	return l.start
