@@ -2,11 +2,10 @@ package app
 
 import (
 	"context"
-	"errors"
-	"gocycles/lifecycle"
 	"gocycles/model"
 	"log"
 	"os"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -14,24 +13,18 @@ import (
 type App struct {
 	State         chan int
 	Err           chan error
-	Lifelifecycle lifecycle.Lifecycle
-	Async         bool
+	Lifelifecycle model.Lifecycle
 }
 
 func (a *App) Run(ctx context.Context) {
 	for {
 		select {
 		case state := <-a.State:
-			if a.Async {
-				go a.AsyncExecute(ctx, state)
-				continue
-			}
 			go a.Execute(ctx, state)
 		case err := <-a.Err:
-			if errors.Is(err, model.ErrCritical) {
-				go a.resetState(err)
+			if err != nil {
+				log.Println(err)
 			}
-
 		}
 	}
 }
@@ -40,72 +33,78 @@ func (a *App) Start() {
 }
 
 func (a *App) Execute(ctx context.Context, state int) {
-	g, ctx := errgroup.WithContext(ctx)
 	switch state {
 	case 0:
-		log.Printf("Running Start Fase(%v)", state)
-		a.runCycle(ctx, g, a.Lifelifecycle.Start())
+		log.Printf("Start Fase(%v)", state)
+		a.runCycle(ctx, a.Lifelifecycle.Start(), state)
 	case 1:
-		log.Printf("Running Runner Fase(%v)", state)
-		a.runCycle(ctx, g, a.Lifelifecycle.Run())
+		log.Printf("Runner Fase(%v)", state)
+		a.runCycle(ctx, a.Lifelifecycle.Run(), state)
 	case 2:
-		log.Printf("Running waiting Fase(%v)", state)
-		a.runCycle(ctx, g, a.Lifelifecycle.Wait())
+		log.Printf("waiting Fase(%v)", state)
+		a.runCycle(ctx, a.Lifelifecycle.Wait(), state)
 	case 3:
-		log.Printf("Running restarting Fase(%v)", state)
-		a.runCycle(ctx, g, a.Lifelifecycle.Reset())
+		log.Printf("Restarting Fase(%v)", state)
+		a.runCycle(ctx, a.Lifelifecycle.Reset(), state)
 
 	case 4:
+		log.Println("Shutingdown")
 		os.Exit(0)
 	}
 
-	if err := g.Wait(); err != nil {
-		log.Printf("faze(%v): %s", state, err.Error())
-		a.Err <- err
-	}
-	a.State <- state + 1
 }
 
-func (a *App) AsyncExecute(ctx context.Context, state int) {
+func (a *App) runCycle(ctx context.Context, lifeStage model.LifeStage, state int) {
 	g, ctx := errgroup.WithContext(ctx)
-	switch state {
-	case 0:
-		log.Printf("Running Start Fase(%v)", state)
-		go a.runCycle(ctx, g, a.Lifelifecycle.Start())
-	case 1:
-		log.Printf("Running Runner Fase(%v)", state)
-		go a.runCycle(ctx, g, a.Lifelifecycle.Run())
-	case 2:
-		log.Printf("Running waiting Fase(%v)", state)
-		go a.runCycle(ctx, g, a.Lifelifecycle.Wait())
-	case 3:
-		log.Printf("Running restarting Fase(%v)", state)
-		go a.runCycle(ctx, g, a.Lifelifecycle.Reset())
-	case 4:
-		os.Exit(0)
-	}
-
-	a.State <- state + 1
-	if err := g.Wait(); err != nil {
-		log.Printf("faze(%v): %s", state, err.Error())
-		a.Err <- err
-	}
-}
-
-func (a *App) runCycle(ctx context.Context, g *errgroup.Group, stages []model.Stage) {
-	for _, f := range stages {
+	for _, f := range lifeStage.Stages() {
 		f := f
 		if !f.Async {
-			a.Err <- f.Step(ctx)
+			err := f.Step(ctx)
+			if err != nil && f.ResetOnError {
+				a.resetApp(err)
+				return
+			}
+			a.Err <- err
 			continue
 		}
-		g.Go(func() error {
-			return f.Step(ctx)
-		})
+		if f.ResetOnError {
+			g.Go(func() error {
+				return f.Step(ctx)
+			})
+		}
+		go func() {
+			err := f.Step(ctx)
+			if err != nil {
+				a.Err <- err
+			}
+		}()
+	}
+	if err := g.Wait(); err != nil {
+		a.resetApp(err)
+		go a.Log(err)
+		return
+	}
+	a.next(state)
+}
+
+func (a *App) next(state int) {
+	if state < 2 {
+		a.State <- state + 1
+	}
+	if state == 2 {
+		a.State <- 4
+	}
+	if state == 3 {
+		a.State <- 0
 	}
 }
 
-func (a *App) resetState(err error) {
+func (a *App) Log(err error) {
+	a.Err <- err
+}
+
+func (a *App) resetApp(err error) {
 	log.Printf("application reseting by: %s", err.Error())
-	a.State <- 0
+	time.Sleep(time.Second * 3)
+	a.State <- 3
 }

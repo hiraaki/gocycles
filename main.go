@@ -2,19 +2,26 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"gocycles/app"
-	"gocycles/lifecycle"
 	"gocycles/model"
-	"gocycles/module"
 	"time"
 )
 
+func start(ctx context.Context) error {
+	fmt.Println("initializing")
+	return nil
+}
+
 func runWithErr(ctx context.Context) error {
-	fmt.Println("runnig")
+	fmt.Println("runnigErr")
 	time.Sleep(time.Second * 1)
-	return errors.New("runner Faild")
+	return model.ErrCritical
+}
+
+func reseting(ctx context.Context) error {
+	fmt.Println("reseting")
+	return nil
 }
 
 func run(ctx context.Context) error {
@@ -25,52 +32,52 @@ func run(ctx context.Context) error {
 
 func main() {
 
-	mod := module.NewModule(
-		module.WithStart(model.Stage{
+	mod := model.NewModule(
+		model.WithStart(model.Stage{
+			Async: false,
+			Step:  start,
+		}),
+		model.WithRun(model.Stage{
+			Async:        false,
+			Step:         runWithErr,
+			ResetOnError: true,
+		}),
+		model.WithWait(model.Stage{
 			Async: false,
 			Step:  run,
 		}),
-		module.WithRun(model.Stage{
+		model.WithReset(model.Stage{
 			Async: false,
-			Step:  runWithErr,
-		}),
-		module.WithWait(model.Stage{
-			Async: false,
-			Step:  run,
-		}),
-		module.WithReset(model.Stage{
-			Async: false,
-			Step:  run,
+			Step:  reseting,
 		}),
 	)
 
-	mod2 := module.NewModule(
-		module.WithStart(model.Stage{
+	mod2 := model.NewModule(
+		model.WithStart(model.Stage{
+			Async: false,
+			Step:  start,
+		}),
+		model.WithRun(model.Stage{
 			Async: false,
 			Step:  run,
 		}),
-		module.WithRun(model.Stage{
+		model.WithWait(model.Stage{
 			Async: false,
 			Step:  run,
 		}),
-		module.WithWait(model.Stage{
+		model.WithReset(model.Stage{
 			Async: false,
-			Step:  run,
-		}),
-		module.WithReset(model.Stage{
-			Async: false,
-			Step:  run,
+			Step:  reseting,
 		}),
 	)
 
-	life := lifecycle.NewLifeClicle(
-		lifecycle.WithModule(mod),
-		lifecycle.WithModule(mod2),
+	life := model.NewLifeClicle(
+		model.WithModule(mod),
+		model.WithModule(mod2),
 	)
 	app := app.App{
 		State:         make(chan int),
 		Err:           make(chan error),
-		Async:         true,
 		Lifelifecycle: life,
 	}
 	go app.Start()

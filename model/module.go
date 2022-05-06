@@ -1,12 +1,10 @@
-package module
-
-import "gocycles/model"
+package model
 
 type Module struct {
-	Start model.Stage
-	Run   model.Stage
-	Wait  model.Stage
-	Reset model.Stage
+	Start Stage
+	Run   Stage
+	Wait  Stage
+	Reset Stage
 }
 
 type moduleOpt func(m *Module)
@@ -19,22 +17,22 @@ func NewModule(opts ...moduleOpt) *Module {
 	return &mod
 }
 
-func WithStart(s model.Stage) moduleOpt {
+func WithStart(s Stage) moduleOpt {
 	return func(m *Module) {
 		m.Start = s
 	}
 }
-func WithRun(s model.Stage) moduleOpt {
+func WithRun(s Stage) moduleOpt {
 	return func(m *Module) {
 		m.Run = s
 	}
 }
-func WithWait(s model.Stage) moduleOpt {
+func WithWait(s Stage) moduleOpt {
 	return func(m *Module) {
 		m.Wait = s
 	}
 }
-func WithReset(s model.Stage) moduleOpt {
+func WithReset(s Stage) moduleOpt {
 	return func(m *Module) {
 		m.Reset = s
 	}
