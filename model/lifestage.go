@@ -18,28 +18,21 @@ func NewLifeStage(opts ...lifeStageOpt) LifeStage {
 	for _, opt := range opts {
 		opt(&l)
 	}
-	if opts == nil {
-		return &lifeStage{
-			stages: []Stage{},
-			async:  false,
-		}
-	}
 	return &l
 }
 
 func (l *lifeStage) AddStage(s Stage) {
-	l.stages = append(l.stages, s)
+	if s != nil {
+		l.stages = append(l.stages, s)
+		if s.Async() {
+			l.async = true
+		}
+	}
 }
 
 func WithStages(s Stage) lifeStageOpt {
 	return func(l *lifeStage) {
 		l.stages = append(l.stages, s)
-	}
-}
-
-func WithAsync(async bool) lifeStageOpt {
-	return func(l *lifeStage) {
-		l.async = async
 	}
 }
 

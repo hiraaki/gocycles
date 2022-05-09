@@ -17,10 +17,14 @@ type App struct {
 }
 
 func (a *App) Run(ctx context.Context) {
+	g, ctx := errgroup.WithContext(ctx)
 	for {
 		select {
 		case state := <-a.State:
-			go a.Execute(ctx, state)
+			g.Go(func() error {
+				a.Execute(ctx, g, state)
+				return nil
+			})
 		case err := <-a.Err:
 			if err != nil {
 				log.Println(err)
@@ -32,7 +36,7 @@ func (a *App) Start() {
 	a.State <- 0
 }
 
-func (a *App) Execute(ctx context.Context, state int) {
+func (a *App) Execute(ctx context.Context, g *errgroup.Group, state int) {
 	switch state {
 	case 0:
 		log.Printf("Start Fase(%v)", state)
@@ -41,51 +45,43 @@ func (a *App) Execute(ctx context.Context, state int) {
 		log.Printf("Runner Fase(%v)", state)
 		a.runCycle(ctx, a.Lifelifecycle.Run(), state)
 	case 2:
-		log.Printf("waiting Fase(%v)", state)
-		a.runCycle(ctx, a.Lifelifecycle.Wait(), state)
+		log.Printf("Waiting to finish(%v)", state)
+		a.wait(g)
 	case 3:
 		log.Printf("Restarting Fase(%v)", state)
 		a.runCycle(ctx, a.Lifelifecycle.Reset(), state)
-
 	case 4:
 		log.Println("Shutingdown")
 		os.Exit(0)
 	}
-
+	go a.next(state)
 }
 
 func (a *App) runCycle(ctx context.Context, lifeStage model.LifeStage, state int) {
 	g, ctx := errgroup.WithContext(ctx)
 	for _, f := range lifeStage.Stages() {
 		f := f
-		if !f.Async {
-			err := f.Step(ctx)
-			if err != nil && f.ResetOnError {
-				a.resetApp(err)
+		if !f.Async() {
+			err := f.Step()(ctx)
+			a.Err <- err
+			if f.ResetOnError() {
+				go a.resetApp(err)
 				return
 			}
-			a.Err <- err
 			continue
 		}
-		if f.ResetOnError {
-			g.Go(func() error {
-				return f.Step(ctx)
-			})
-			continue
-		}
-		go func() {
-			err := f.Step(ctx)
-			if err != nil {
-				a.Err <- err
+		g.Go(func() error {
+			err := f.Step()(ctx)
+			if f.ResetOnError() {
+				return err
 			}
-		}()
+			return nil
+		})
 	}
-	if err := g.Wait(); err != nil {
-		a.resetApp(err)
-		go a.Log(err)
-		return
+	if lifeStage.Async() {
+		go a.next(state)
 	}
-	a.next(state)
+	a.wait(g)
 }
 
 func (a *App) next(state int) {
@@ -100,12 +96,16 @@ func (a *App) next(state int) {
 	}
 }
 
-func (a *App) Log(err error) {
-	a.Err <- err
-}
-
 func (a *App) resetApp(err error) {
 	log.Printf("application reseting by: %s", err.Error())
 	time.Sleep(time.Second * 3)
 	a.State <- 3
+}
+
+func (a *App) wait(g *errgroup.Group) {
+	if err := g.Wait(); err != nil {
+		go a.resetApp(err)
+		a.Err <- err
+		return
+	}
 }

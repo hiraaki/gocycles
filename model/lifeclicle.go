@@ -30,12 +30,12 @@ func NewLifeClicle(opts ...lifeCycleOpt) Lifecycle {
 	}
 	return &l
 }
-func WithModule(mod *Module) lifeCycleOpt {
+func WithModule(mod Module) lifeCycleOpt {
 	return func(l *lifecycle) {
-		l.start.AddStage(mod.Start)
-		l.run.AddStage(mod.Run)
-		l.wait.AddStage(mod.Wait)
-		l.reset.AddStage(mod.Reset)
+		l.start.AddStage(mod.Start())
+		l.run.AddStage(mod.Run())
+		l.wait.AddStage(mod.Wait())
+		l.reset.AddStage(mod.Reset())
 	}
 }
 
