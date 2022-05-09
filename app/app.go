@@ -64,7 +64,7 @@ func (a *App) runCycle(ctx context.Context, lifeStage model.LifeStage, state int
 		if !f.Async() {
 			err := f.Step()(ctx)
 			a.Err <- err
-			if f.ResetOnError() {
+			if err != nil && f.ResetOnError() {
 				go a.resetApp(err)
 				return
 			}
