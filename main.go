@@ -10,6 +10,7 @@ import (
 
 func start(ctx context.Context) error {
 	fmt.Println("initializing")
+	time.Sleep(time.Second * 1)
 	return nil
 }
 
@@ -21,6 +22,7 @@ func runWithErr(ctx context.Context) error {
 
 func reseting(ctx context.Context) error {
 	fmt.Println("reseting")
+	time.Sleep(time.Second * 10)
 	return nil
 }
 
@@ -38,7 +40,7 @@ func main() {
 			Step:  start,
 		}),
 		model.WithRun(model.Stage{
-			Async:        false,
+			Async:        true,
 			Step:         runWithErr,
 			ResetOnError: true,
 		}),
@@ -58,7 +60,7 @@ func main() {
 			Step:  start,
 		}),
 		model.WithRun(model.Stage{
-			Async: false,
+			Async: true,
 			Step:  run,
 		}),
 		model.WithWait(model.Stage{

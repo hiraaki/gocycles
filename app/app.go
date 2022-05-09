@@ -71,6 +71,7 @@ func (a *App) runCycle(ctx context.Context, lifeStage model.LifeStage, state int
 			g.Go(func() error {
 				return f.Step(ctx)
 			})
+			continue
 		}
 		go func() {
 			err := f.Step(ctx)
